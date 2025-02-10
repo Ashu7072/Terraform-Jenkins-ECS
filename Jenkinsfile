@@ -5,7 +5,6 @@ pipeline {
         AWS_REGION = 'us-east-1' 
         AWS_ACCOUNT_ID = '851725280627'
         IMAGE_TAG = "latest"
-        TF_DIR = 'terraform'
     }
 
     stages {
@@ -21,12 +20,26 @@ pipeline {
             }
         }
 
+        stage('Check Terraform Files') {
+            steps {
+                script {
+                    sh "ls -l"
+                }
+            }
+        }
+
         stage('Terraform Init') {
             steps {
                 script {
-                    dir(TF_DIR) {
-                        sh "terraform init"
-                    }
+                    sh "terraform init"
+                }
+            }
+        }
+
+        stage('Terraform Validate') {
+            steps {
+                script {
+                    sh "terraform validate"
                 }
             }
         }
@@ -34,11 +47,9 @@ pipeline {
         stage('Terraform Plan') {
             steps {
                 script {
-                    dir(TF_DIR) {
-                        def planResult = sh(script: "terraform plan -out=tfplan", returnStatus: true)
-                        if (planResult != 0) {
-                            error "Terraform plan failed! Check logs."
-                        }
+                    def planResult = sh(script: "terraform plan -out=tfplan", returnStatus: true)
+                    if (planResult != 0) {
+                        error "Terraform plan failed! Check logs."
                     }
                 }
             }
@@ -55,9 +66,7 @@ pipeline {
         stage('Terraform Apply (ECR & ECS Creation)') {
             steps {
                 script {
-                    dir(TF_DIR) {
-                        sh "terraform apply tfplan"
-                    }
+                    sh "terraform apply tfplan"
                 }
             }
         }
@@ -65,13 +74,11 @@ pipeline {
         stage('Fetch ECR Repository Name') {
             steps {
                 script {
-                    dir(TF_DIR) {
-                        def repo_url = sh(script: "terraform output -raw ecr_repo_url", returnStdout: true).trim()
-                        if (!repo_url?.trim()) {
-                            error "ECR_REPO is empty! Make sure Terraform applied successfully."
-                        }
-                        env.ECR_REPO = repo_url
+                    def repo_url = sh(script: "terraform output -raw ecr_repo_url", returnStdout: true).trim()
+                    if (!repo_url?.trim()) {
+                        error "ECR_REPO is empty! Make sure Terraform applied successfully."
                     }
+                    env.ECR_REPO = repo_url
                     echo "ECR Repository: ${env.ECR_REPO}"
                 }
             }
@@ -80,6 +87,9 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
+                    if (!env.ECR_REPO?.trim()) {
+                        error "ECR_REPO is not set! Cannot build the image."
+                    }
                     sh "docker build -t ${env.ECR_REPO}:${IMAGE_TAG} ."
                 }
             }
