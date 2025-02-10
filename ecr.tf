@@ -12,3 +12,6 @@ resource "aws_ecr_repository" "my_app" {
     scan_on_push = true
   }
 }
+
+output "ecr_repo_url" {
+  value = aws_ecr_repository.my_repo.repository_url
