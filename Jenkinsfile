@@ -16,7 +16,7 @@ pipeline {
 
         stage('Checkout Code') {
             steps {
-                checkout scm
+                checkout scm "https://github.com/Ashu7072/Terraform-Jenkins-ECS.git"
             }
         }
 
