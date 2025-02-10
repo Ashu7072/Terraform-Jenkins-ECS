@@ -1,72 +1,57 @@
 pipeline {
-    agent any
+    parameters {
+        booleanParam(name: 'autoApprove', defaultValue: false, description: 'Automatically run apply after generating plan?')
+    } 
 
     environment {
         AWS_REGION = 'us-east-1' 
         AWS_ACCOUNT_ID = '851725280627'
         IMAGE_TAG = "latest"
+        TF_DIR = 'terraform'
     }
 
-    stages {
-        stage('Clean Workspace') {
-            steps {
-                cleanWs()
-            }
-        }
+    agent any
 
+    stages {
         stage('Checkout Code') {
             steps {
-                checkout scm "https://github.com/Ashu7072/Terraform-Jenkins-ECS.git"
-            }
-        }
-
-        stage('Check Terraform Files') {
-            steps {
                 script {
-                    sh "ls -l"
+                    git branch: 'main', url: 'https://github.com/Ashu7072/Jenkins-CICD.git'
                 }
             }
         }
 
-        stage('Terraform Init') {
+        stage('Terraform Init & Plan') {
             steps {
                 script {
-                    sh "terraform init"
-                }
-            }
-        }
-
-        stage('Terraform Validate') {
-            steps {
-                script {
-                    sh "terraform validate"
-                }
-            }
-        }
-
-        stage('Terraform Plan') {
-            steps {
-                script {
-                    def planResult = sh(script: "terraform plan -out=tfplan", returnStatus: true)
-                    if (planResult != 0) {
-                        error "Terraform plan failed! Check logs."
+                    dir(TF_DIR) {
+                        sh "terraform init"
+                        sh "terraform plan -out=tfplan"
+                        sh "terraform show -no-color tfplan > tfplan.txt"
                     }
                 }
             }
         }
 
         stage('Approval Required') {
+            when {
+                not { equals expected: true, actual: params.autoApprove }
+            }
             steps {
                 script {
-                    input message: "Do you approve applying the Terraform changes?", ok: "Yes, Apply"
+                    def plan = readFile("${TF_DIR}/tfplan.txt")
+                    input message: "Do you approve applying the Terraform changes?",
+                    parameters: [text(name: 'Plan', description: 'Please review the plan', defaultValue: plan)]
                 }
             }
         }
 
-        stage('Terraform Apply (ECR & ECS Creation)') {
+        stage('Terraform Apply') {
             steps {
                 script {
-                    sh "terraform apply tfplan"
+                    dir(TF_DIR) {
+                        sh "terraform apply -input=false tfplan"
+                    }
                 }
             }
         }
@@ -74,11 +59,13 @@ pipeline {
         stage('Fetch ECR Repository Name') {
             steps {
                 script {
-                    def repo_url = sh(script: "terraform output -raw ecr_repo_url", returnStdout: true).trim()
-                    if (!repo_url?.trim()) {
-                        error "ECR_REPO is empty! Make sure Terraform applied successfully."
+                    dir(TF_DIR) {
+                        def repo_url = sh(script: "terraform output -raw ecr_repo_url", returnStdout: true).trim()
+                        if (!repo_url?.trim()) {
+                            error "ECR_REPO is empty! Make sure Terraform applied successfully."
+                        }
+                        env.ECR_REPO = repo_url
                     }
-                    env.ECR_REPO = repo_url
                     echo "ECR Repository: ${env.ECR_REPO}"
                 }
             }
@@ -87,9 +74,6 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    if (!env.ECR_REPO?.trim()) {
-                        error "ECR_REPO is not set! Cannot build the image."
-                    }
                     sh "docker build -t ${env.ECR_REPO}:${IMAGE_TAG} ."
                 }
             }
@@ -97,10 +81,8 @@ pipeline {
 
         stage('Login to AWS ECR') {
             steps {
-                withAWS(credentials: 'aws-ecs-creds', region: AWS_REGION) {
-                    script {
-                        sh "aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin ${env.ECR_REPO}"
-                    }
+                script {
+                    sh "aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin ${env.ECR_REPO}"
                 }
             }
         }
@@ -115,10 +97,8 @@ pipeline {
 
         stage('Update ECS Service') {
             steps {
-                withAWS(credentials: 'aws-ecs-creds', region: AWS_REGION) {
-                    script {
-                        sh "aws ecs update-service --cluster my-ecs-cluster --service my-service --force-new-deployment"
-                    }
+                script {
+                    sh "aws ecs update-service --cluster my-ecs-cluster --service my-service --force-new-deployment"
                 }
             }
         }
@@ -126,10 +106,10 @@ pipeline {
 
     post {
         success {
-            echo 'Deployment successful!'
+            echo '✅ Deployment successful!'
         }
         failure {
-            echo 'Deployment failed!'
+            echo '❌ Deployment failed! Check logs for errors.'
         }
     }
 }
