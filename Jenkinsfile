@@ -6,6 +6,10 @@ pipeline {
     environment {
         AWS_ACCESS_KEY_ID     = credentials('AWS_ACCESS_KEY_ID')
         AWS_SECRET_ACCESS_KEY = credentials('AWS_SECRET_ACCESS_KEY')
+        AWS_REGION = 'us-east-1' 
+        AWS_ACCOUNT_ID = '851725280627'
+        IMAGE_TAG = "latest"
+        TF_DIR = 'terraform'
     }
 
    agent  any
