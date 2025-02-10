@@ -16,7 +16,7 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 script {
-                    git branch: 'main', url: 'https://github.com/Ashu7072/Jenkins-CICD.git'
+                    git branch: 'main', url: 'https://github.com/Ashu7072/Terraform-Jenkins-ECS.git'
                 }
             }
         }
