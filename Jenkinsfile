@@ -1,89 +1,54 @@
 pipeline {
-    agent any
 
+    parameters {
+        booleanParam(name: 'autoApprove', defaultValue: false, description: 'Automatically run apply after generating plan?')
+    } 
     environment {
-        AWS_REGION = 'us-east-1' 
-        AWS_ACCOUNT_ID = '851725280627'
-        IMAGE_TAG = "latest"
-        TF_DIR = 'terraform'
+        AWS_ACCESS_KEY_ID     = credentials('AWS_ACCESS_KEY_ID')
+        AWS_SECRET_ACCESS_KEY = credentials('AWS_SECRET_ACCESS_KEY')
     }
 
+   agent  any
     stages {
-        stage('Clean Workspace') {
+        stage('checkout') {
             steps {
-                cleanWs()
-            }
-        }
-
-        stage('Checkout Code') {
-            steps {
-                git branch: 'main', url: 'https://github.com/Ashu7072/Jenkins-CICD.git'
-            }
-        }
-
-        stage('Check Terraform Directory') {
-            steps {
-                script {
-                    def dirExists = sh(script: "[ -d terraform ] && echo 'Exists' || echo 'Not Found'", returnStdout: true).trim()
-                    if (dirExists == "Not Found") {
-                        error "Terraform directory not found! Check if the repository is correctly cloned."
+                 script{
+                        dir("terraform")
+                        {
+                            git "https://github.com/Ashu7072/Jenkins-CICD.git"
+                        }
                     }
                 }
             }
-        }
 
-        stage('Terraform Init') {
+        stage('Plan') {
             steps {
-                script {
-                    dir(TF_DIR) {
-                        sh "terraform init"
-                    }
-                }
+                sh 'pwd;cd terraform/ ; terraform init'
+                sh "pwd;cd terraform/ ; terraform plan -out tfplan"
+                sh 'pwd;cd terraform/ ; terraform show -no-color tfplan > tfplan.txt'
             }
         }
+        stage('Approval') {
+           when {
+               not {
+                   equals expected: true, actual: params.autoApprove
+               }
+           }
 
-        stage('Terraform Plan') {
-            steps {
-                script {
-                    dir(TF_DIR) {
-                        sh "terraform plan -out=tfplan"
-                    }
-                }
-            }
-        }
-
-        stage('Approval Required') {
-            when {
-                not {
-                    equals expected: true, actual: params.autoApprove
-                }
-            }
-            steps {
-                script {
-                    def plan = readFile "${TF_DIR}/tfplan.txt"
-                    input message: "Do you approve applying the Terraform changes?",
+           steps {
+               script {
+                    def plan = readFile 'terraform/tfplan.txt'
+                    input message: "Do you want to apply the plan?",
                     parameters: [text(name: 'Plan', description: 'Please review the plan', defaultValue: plan)]
-                }
-            }
-        }
+               }
+           }
+       }
 
-        stage('Terraform Apply') {
+        stage('Apply') {
             steps {
-                script {
-                    dir(TF_DIR) {
-                        sh "terraform apply -input=false tfplan"
-                    }
-                }
+                sh "pwd;cd terraform/ ; terraform apply -input=false tfplan"
             }
         }
     }
 
-    post {
-        success {
-            echo 'Deployment successful!'
-        }
-        failure {
-            echo 'Deployment failed!'
-        }
-    }
-}
+  }
