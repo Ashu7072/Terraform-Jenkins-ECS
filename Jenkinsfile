@@ -10,6 +10,9 @@ pipeline {
         AWS_ACCOUNT_ID = '851725280627'
         IMAGE_TAG = "latest"
         TF_DIR = 'terraform'
+        repo_name       = "node-app"
+        cluster_name    = "my-ecs-cluster"
+        task_def_name   = "my-task"
     }
 
    agent  any
