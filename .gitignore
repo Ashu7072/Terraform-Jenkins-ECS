@@ -1,0 +1,19 @@
+#  Local .terraform directories
+**/.terraform/*
+
+# .tfstate files
+*.tfstate
+*.tfstate.*
+
+# .tfvars files
+*.tfvars
+
+# Ignore Terraform-related files
+*.tfstate
+*.tfstate.backup
+.terraform/
+terraform.tfvars
+
+# Ignore system files
+.DS_Store
+Thumbs.db
