@@ -21,10 +21,23 @@ pipeline {
             }
         }
 
+        stage('Check Terraform Directory') {
+            steps {
+                script {
+                    def dirExists = sh(script: "[ -d terraform ] && echo 'Exists' || echo 'Not Found'", returnStdout: true).trim()
+                    if (dirExists == "Not Found") {
+                        error "Terraform directory not found! Check if the repository is correctly cloned."
+                    }
+                }
+            }
+        }
+
         stage('Terraform Init') {
             steps {
                 script {
-                    sh "terraform -chdir=${TF_DIR} init"
+                    dir(TF_DIR) {
+                        sh "terraform init"
+                    }
                 }
             }
         }
@@ -32,7 +45,9 @@ pipeline {
         stage('Terraform Plan') {
             steps {
                 script {
-                    sh "terraform -chdir=${TF_DIR} plan -out=tfplan"
+                    dir(TF_DIR) {
+                        sh "terraform plan -out=tfplan"
+                    }
                 }
             }
         }
@@ -55,7 +70,9 @@ pipeline {
         stage('Terraform Apply') {
             steps {
                 script {
-                    sh "terraform -chdir=${TF_DIR} apply -input=false tfplan"
+                    dir(TF_DIR) {
+                        sh "terraform apply -input=false tfplan"
+                    }
                 }
             }
         }
