@@ -28,7 +28,6 @@ pipeline {
                     }
                 }
             }
-
         stage('Plan') {
             steps {
                 sh 'pwd;cd terraform/ ; terraform init'
@@ -82,17 +81,7 @@ pipeline {
                 }
             }
         }
-
-    }
-
-    post {
-        success {
-            script {
-                
-            }
-        }
-    }
-    
+    }   
 }
 
 
