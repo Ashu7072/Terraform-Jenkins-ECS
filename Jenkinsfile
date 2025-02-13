@@ -10,12 +10,13 @@ pipeline {
         AWS_ACCOUNT_ID = '851725280627'
         IMAGE_TAG = "latest"
         TF_DIR = 'terraform'
-        repo_name       = "node-app"
+        IMAGE_REPO_NAME       = "node-app"
         cluster_name    = "my-ecs-cluster"
         task_def_name   = "my-task"
+        REPOSITORY_URI  = "851725280627.dkr.ecr.us-east-1.amazonaws.com/node-app"
     }
 
-   agent  any
+    agent any
     stages {
         stage('checkout') {
             steps {
@@ -56,57 +57,42 @@ pipeline {
                 sh "pwd;cd terraform/ ; terraform apply -input=false tfplan"
             }
         }
+
+        stage('logging into AWS ECR') {
+            steps{
+                script{
+                    sh """aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 851725280627.dkr.ecr.us-east-1.amazonaws.com"""
+                }
+            }
+        }
+
+        stage('building image') {
+            steps {
+                script {
+                    dockerImage = docker.build "${REPO_NAME}:${IMAGE_TAG}"
+                }
+            }
+        }
+
+        stage('Push to ECR') {
+            steps {
+                script {
+                    sh """docker tag ${IMAGE_REPO_NAME}:${IMAGE_TAG} ${REPOSITORY_URI}:$IMAGE_TAG"""
+                    sh """docker push ${IMAGE_REPO_NAME}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_REPO_NAME}:${IMAGE_TAG}"""
+                }
+            }
+        }
+
     }
 
-        stage('Build') {
-            steps {
-                script {
-                    sh "docker build --build-arg ENV_PROFILE=${environment} -t ${repo_name}:latest ."
-                }
-            }
-        }
-
-        stage('Deploy To ECR') {
-            steps {
-                script {
-                    withAWS(credentials: "aws-${app}-${environment}", region: "${region}") {
-                        sh """
-                            aws ecr get-login-password --region ${region} | docker login --username AWS --password-stdin ${aws_account_id}.dkr.ecr.${region}.amazonaws.com
-                            docker tag ${repo_name}:latest ${aws_account_id}.dkr.ecr.${region}.amazonaws.com/${repo_name}:${BUILD_NUMBER}
-                            docker push ${aws_account_id}.dkr.ecr.${region}.amazonaws.com/${repo_name}:${BUILD_NUMBER}
-                        """
-                    }
-                }
-            }
-        }
-
-        stage('Deploy To ECS') {
-            steps {
-                script {
-                    withAWS(credentials: "aws-${app}-${environment}", region: "${region}") {
-                        sh """
-                            TASK_DEFINITION=$( aws ecs describe-task-definition --task-definition ${task_def_name} --region=${region} )
-                            NEW_TASK_DEFINITION=$( echo $TASK_DEFINITION | jq --arg IMAGE "${aws_account_id}.dkr.ecr.${region}.amazonaws.com/${repo_name}:${BUILD_NUMBER}" '.taskDefinition | .containerDefinitions[0].image = $IMAGE | del(.taskDefinitionArn) | del(.revision) | del(.status) | del(.requiresAttributes) | del(.compatibilities) | del(.registeredAt) | del(.registeredBy)' )
-                            echo $NEW_TASK_DEFINITION > task-def.json
-                            NEW_TASK_INFO=$(aws ecs register-task-definition --region ${region} --cli-input-json file://task-def.json)
-                            NEW_REVISION=$(echo $NEW_TASK_INFO | jq '.taskDefinition.revision')
-                            aws ecs update-service --cluster ${cluster_name} --service ${service} --task-definition ${task_def_name}:${NEW_REVISION} --force-new-deployment
-                        """
-                    }
-                }
-            }
-        }
-
-        stage('Cleanup') {
-            steps {
-                sh 'rm -rf task-def.json || echo "already cleaned up"'
-                sh 'docker system prune -f'
-            }
-        }
-    }
     post {
-        always {
-            cleanWs()
+        success {
+            script {
+                
+            }
         }
     }
+    
+}
+
 
