@@ -81,6 +81,21 @@ pipeline {
                 }
             }
         }
+
+        stage('Deploy To ECS') {
+            steps {
+                script {
+                        sh """
+                            TASK_DEFINITION=\$( aws ecs describe-task-definition --task-definition ${app}-${environment}-ecs-task --region=${AWS_REGION} )
+                            NEW_TASK_DEFINITION=\$( echo \$TASK_DEFINITION | jq --arg IMAGE "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${app}-${environment}-ecr-repo:${BUILD_NUMBER}" '.taskDefinition | .containerDefinitions[0].image = \$IMAGE | del(.taskDefinitionArn) | del(.revision) | del(.status) | del(.requiresAttributes) | del(.compatibilities) |  del(.registeredAt)  | del(.registeredBy)' )
+                            echo \$NEW_TASK_DEFINITION > task-def.json
+                            NEW_TASK_INFO=\$(aws ecs register-task-definition --region ${AWS_REGION} --cli-input-json file://task-def.json)
+                            NEW_REVISION=\$(echo \$NEW_TASK_INFO | jq '.taskDefinition.revision')
+                            aws ecs update-service --cluster ${app}-${environment}-cluster --service ${app}-${environment}-ecs-service --task-definition ${app}-${environment}-ecs-task:\${NEW_REVISION} --force-new-deployment
+                        """
+                }
+            }
+        }
     }   
 }
 

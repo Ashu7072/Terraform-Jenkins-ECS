@@ -76,7 +76,7 @@ resource "aws_iam_role" "ecs_instance_role" {
 
 # IAM Instance Profile for ECS
 resource "aws_iam_instance_profile" "ecs_instance_profile" {
-  name = "ecsInstanceProfile"
+  name = "ecsInstanceProfile-new"
   role = aws_iam_role.ecs_instance_role.name
 }
 
