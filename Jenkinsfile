@@ -13,7 +13,7 @@ pipeline {
         IMAGE_REPO_NAME       = "node-app"
         cluster_name    = "my-ecs-cluster"
         task_def_name   = "my-task"
-        REPOSITORY_URI  = "851725280627.dkr.ecr.us-east-1.amazonaws.com/node-app"
+        REPOSITORY_URI  = "851725280627.dkr.ecr.us-east-1.amazonaws.com/my-app"
     }
 
     agent any
@@ -60,7 +60,7 @@ pipeline {
         stage('logging into AWS ECR') {
             steps{
                 script{
-                    sh """aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 851725280627.dkr.ecr.us-east-1.amazonaws.com"""
+                    sh """aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 851725280627.dkr.ecr.us-east-1.amazonaws.com/my-app"""
                 }
             }
         }
