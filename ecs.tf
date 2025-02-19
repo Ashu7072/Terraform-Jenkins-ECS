@@ -22,6 +22,7 @@ resource "aws_ecs_task_definition" "task" {
   }])
 }
 
+# AWS Launch template
 resource "aws_launch_template" "ecs" {
   name_prefix  = "ecs-launch-template-"
   image_id     = var.image_id
@@ -50,8 +51,8 @@ resource "aws_autoscaling_group" "ecs" {
   }
 
   min_size            = 1
-  max_size            = 3
-  desired_capacity    = 2
+  max_size            = 1
+  desired_capacity    = 1
   vpc_zone_identifier = var.subnet_ids
 }
 
@@ -60,13 +61,46 @@ resource "aws_ecs_service" "service" {
   name            = "my-service"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.task.arn
-  desired_count   = 2
+  desired_count   = 1
   launch_type     = "EC2"
 
   depends_on = [
     aws_ecs_cluster.main,
     aws_ecs_task_definition.task
   ]
+}
+
+# AWS load balancer
+resource "aws_lb" "test" {
+  name               = "test-lb-tf"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = var.security_groups
+  subnets            = var.subnet_ids
+
+  enable_deletion_protection = true
+
+  /*access_logs {
+    bucket  = aws_s3_bucket.lb_logs.id
+    prefix  = "test-lb"
+    enabled = true
+  }*/
+
+  tags = {
+    Environment = "production"
+  }
+}
+
+# AWS lb target group
+resource "aws_lb_target_group" "test" {
+  name     = "tf-example-lb-tg"
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.main.id
+}
+
+resource "aws_vpc" "main" {
+  cidr_block = "10.0.0.0/16"
 }
 
 # Output ECS Cluster ARN
