@@ -19,8 +19,10 @@ variable "key_name" {
 }
 
 variable "security_groups" {
+  description = "List of security group IDs"
   type = list(string)
 }
+
 variable "subnet_ids" {
   type = list(string)
 }
