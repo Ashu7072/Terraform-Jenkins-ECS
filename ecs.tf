@@ -31,7 +31,7 @@ resource "aws_launch_template" "ecs" {
 
   network_interfaces {
     associate_public_ip_address = true
-    security_groups             = var.security_groups
+    security_groups             = ["sg-0188c9fb8c5e55847"]
   }
 
   iam_instance_profile {
@@ -96,11 +96,7 @@ resource "aws_lb_target_group" "test" {
   name     = "tf-example-lb-tg"
   port     = 80
   protocol = "HTTP"
-  vpc_id   = aws_vpc.main.id
-}
-
-resource "aws_vpc" "main" {
-  cidr_block = "10.0.0.0/16"
+  vpc_id   = var.vpc_id
 }
 
 # Output ECS Cluster ARN
