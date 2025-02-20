@@ -69,6 +69,30 @@ resource "aws_ecs_service" "service" {
   ]
 }
 
+#Instance Target Group
+resource "aws_lb_target_group" "alb-example" {
+  name        = "tf-example-lb-alb-tg"
+  target_type = "alb"
+  port        = 80
+  protocol    = "TCP"
+  vpc_id      = var.vpc_id
+}
+
+#Application Load Balancer
+resource "aws_lb" "test" {
+  name               = "test-lb-tf"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = var.security_groups
+  subnets            = var.subnet_ids
+
+  enable_deletion_protection = false 
+
+  tags = {
+    Environment = "production"
+  }
+}
+
 # Output ECS Cluster ARN
 output "cluster_arn" {
   value = aws_ecs_cluster.main.arn

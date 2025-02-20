@@ -7,5 +7,7 @@ WORKDIR /app
 
 RUN npm install
 
+EXPOSE 8181
+
 CMD [ "node", "server.js"]
 
